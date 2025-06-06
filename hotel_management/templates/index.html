@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Welcome to Hotel Management System</h1>
+<div class="row mt-4">
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">Rooms</h5>
+                <p class="card-text">Manage hotel rooms and their details.</p>
+                <a href="/rooms" class="btn btn-primary">Manage Rooms</a>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">Guests</h5>
+                <p class="card-text">Manage guest information and records.</p>
+                <a href="/guests" class="btn btn-primary">Manage Guests</a>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">Bookings</h5>
+                <p class="card-text">Manage room bookings and reservations.</p>
+                <a href="/bookings" class="btn btn-primary">Manage Bookings</a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

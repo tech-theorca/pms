@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Booking Calendar</h2>
+
+<div class="row mt-4">
+    <div class="col">
+        <div class="card">
+            <div class="card-body">
+                <div id="calendar"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<link href='https://cdn.jsdelivr.net/npm/fullcalendar@5.11.3/main.css' rel='stylesheet' />
+<script src='https://cdn.jsdelivr.net/npm/fullcalendar@5.11.3/main.js'></script>
+<link href='https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@5.15.4/css/all.min.css' rel='stylesheet'>
+
+<style>
+.fc-event {
+    cursor: pointer;
+    border-radius: 4px !important;
+    padding: 2px !important;
+    font-size: 0.8em !important;
+    text-align: center !important;
+    margin: 1px !important;
+    height: 20px !important;
+    line-height: 16px !important;
+}
+
+.fc-daygrid-event-harness {
+    margin: 1px !important;
+}
+
+.tooltip {
+    position: absolute;
+    background: rgba(0, 0, 0, 0.85);
+    color: white;
+    padding: 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    z-index: 10000;
+    display: none;
+}
+</style>
+
+<div id="tooltip" class="tooltip"></div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    var calendarEl = document.getElementById('calendar');
+    var tooltip = document.getElementById('tooltip');
+    
+    var calendar = new FullCalendar.Calendar(calendarEl, {
+        initialView: 'dayGridMonth',
+        events: '/api/bookings',
+        eventDisplay: 'block',
+        displayEventTime: false,
+        eventDidMount: function(info) {
+            info.el.addEventListener('mouseover', function(e) {
+                var content = `Room ${info.event.title} - ${info.event.extendedProps.room_type}<br>`;
+                if (info.event.extendedProps.status === 'available') {
+                    content += 'Available';
+                } else {
+                    content += `Guest: ${info.event.extendedProps.guest}<br>`;
+                    content += `Status: ${info.event.extendedProps.status}`;
+                }
+                
+                tooltip.innerHTML = content;
+                tooltip.style.display = 'block';
+                tooltip.style.left = e.pageX + 10 + 'px';
+                tooltip.style.top = e.pageY + 10 + 'px';
+            });
+            
+            info.el.addEventListener('mouseout', function() {
+                tooltip.style.display = 'none';
+            });
+            
+            info.el.addEventListener('mousemove', function(e) {
+                tooltip.style.left = e.pageX + 10 + 'px';
+                tooltip.style.top = e.pageY + 10 + 'px';
+            });
+        },
+        eventClick: function(info) {
+            if (info.event.extendedProps.status === 'available') {
+                window.location.href = `/bookings?room=${info.event.title}`;
+            }
+        }
+    });
+    
+    calendar.render();
+});
+</script>
+{% endblock %}

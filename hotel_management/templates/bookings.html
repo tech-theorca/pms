@@ -1,0 +1,231 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h2>Booking Management</h2>
+
+<div class="row mt-4 mb-4">
+    <div class="col">
+        <form method="POST" class="d-flex">
+            <input type="text" class="form-control me-2" name="search_term" placeholder="Search bookings...">
+            <button type="submit" name="search" class="btn btn-outline-primary">Search</button>
+        </form>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">Booking List</h5>
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Guest</th>
+                            <th>Room</th>
+                            <th>Check-in</th>
+                            <th>Check-out</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for booking in bookings %}
+                        <tr>
+                            <td>{{ booking.id }}</td>
+                            <td>{{ booking.guest.first_name }} {{ booking.guest.last_name }}</td>
+                            <td>{{ booking.room.room_number }}</td>
+                            <td>{{ booking.check_in.strftime('%Y-%m-%d') }}</td>
+                            <td>{{ booking.check_out.strftime('%Y-%m-%d') }}</td>
+                            <td>
+                                <form method="POST" action="{{ url_for('update_booking_status', booking_id=booking.id) }}" class="d-inline">
+                                    <select name="status" class="form-select form-select-sm" onchange="this.form.submit()">
+                                        <option value="pending" {% if booking.status == 'pending' %}selected{% endif %}>Pending</option>
+                                        <option value="confirmed" {% if booking.status == 'confirmed' %}selected{% endif %}>Confirmed</option>
+                                        <option value="checked_in" {% if booking.status == 'checked_in' %}selected{% endif %}>Checked In</option>
+                                        <option value="completed" {% if booking.status == 'completed' %}selected{% endif %}>Completed</option>
+                                        <option value="cancelled" {% if booking.status == 'cancelled' %}selected{% endif %}>Cancelled</option>
+                                    </select>
+                                </form>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">Create New Booking</h5>
+                <form method="POST" id="bookingForm">
+                    <!-- Step 1: Check Room Availability -->
+                    <div id="step1" class="booking-step">
+                        <h6 class="mb-3">Step 1: Check Room Availability</h6>
+                        <div class="form-group mb-3">
+                            <label for="check_in">Check-in Date:</label>
+                            <input type="date" class="form-control" id="check_in" name="check_in" required onchange="checkRoomAvailability()">
+                        </div>
+                        <div class="form-group mb-3">
+                            <label for="check_out">Check-out Date:</label>
+                            <input type="date" class="form-control" id="check_out" name="check_out" required onchange="checkRoomAvailability()">
+                        </div>
+                        <div class="form-group mb-3">
+                            <label for="room_id">Available Rooms:</label>
+                            <select class="form-control" id="room_id" name="room_id" required>
+                                <option value="">Select a room</option>
+                            </select>
+                            <div id="loading-spinner" style="display: none;" class="spinner-border spinner-border-sm text-primary ml-2" role="status">
+                                <span class="sr-only">Loading...</span>
+                            </div>
+                            <small id="availability-message" class="form-text"></small>
+                        </div>
+                        <button type="button" class="btn btn-primary" onclick="proceedToGuestSelection()" id="nextStepBtn" disabled>Next: Select Guest</button>
+                    </div>
+
+                    <!-- Step 2: Guest Selection -->
+                    <div id="step2" class="booking-step" style="display: none;">
+                        <h6 class="mb-3">Step 2: Select Guest</h6>
+                        <div class="mb-3">
+                            <label for="guest_id" class="form-label">Guest</label>
+                            <select class="form-control select2" id="guest_id" name="guest_id" required>
+                                <option value="" disabled selected>Search for a guest...</option>
+                                {% for guest in guests %}
+                                <option value="{{ guest.id }}">{{ guest.first_name }} {{ guest.last_name }} - {{ guest.email }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <button type="button" class="btn btn-secondary me-2" onclick="backToRoomSelection()">Back</button>
+                        <button type="submit" class="btn btn-success">Create Booking</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+$(document).ready(function() {
+    // Initialize Select2 for guest selection
+    $('.select2').select2({
+        placeholder: 'Search for a guest...',
+        allowClear: true,
+        width: '100%',
+        theme: 'bootstrap4'
+    });
+
+    // Set minimum date for check-in to today
+    const today = new Date().toISOString().split('T')[0];
+    $('#check_in').attr('min', today);
+
+    // Update check-out minimum date when check-in is selected
+    $('#check_in').on('change', function() {
+        const checkInDate = new Date($(this).val());
+        const nextDay = new Date(checkInDate);
+        nextDay.setDate(checkInDate.getDate() + 1);
+        $('#check_out').attr('min', nextDay.toISOString().split('T')[0]);
+        
+        // Clear check-out if it's before check-in
+        const checkOutDate = new Date($('#check_out').val());
+        if (checkOutDate <= checkInDate) {
+            $('#check_out').val('');
+        }
+    });
+});
+
+let checkAvailabilityInProgress = false;
+
+async function checkRoomAvailability() {
+    const checkInDate = document.getElementById('check_in').value;
+    const checkOutDate = document.getElementById('check_out').value;
+    const roomSelect = document.getElementById('room_id');
+    const loadingSpinner = document.getElementById('loading-spinner');
+    const availabilityMessage = document.getElementById('availability-message');
+    const nextStepBtn = document.getElementById('nextStepBtn');
+
+    // Validate dates
+    if (!checkInDate || !checkOutDate) {
+        availabilityMessage.textContent = 'Please select both check-in and check-out dates';
+        availabilityMessage.className = 'text-danger';
+        nextStepBtn.disabled = true;
+        return;
+    }
+
+    // Prevent multiple simultaneous requests
+    if (checkAvailabilityInProgress) {
+        return;
+    }
+
+    try {
+        checkAvailabilityInProgress = true;
+        loadingSpinner.style.display = 'inline-block';
+        availabilityMessage.textContent = 'Checking availability...';
+        availabilityMessage.className = 'text-info';
+        nextStepBtn.disabled = true;
+
+        const response = await fetch('/check_room_availability', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            body: new URLSearchParams({
+                'check_in': checkInDate,
+                'check_out': checkOutDate
+            })
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+            throw new Error(data.error || 'Failed to check room availability');
+        }
+
+        // Clear existing options
+        roomSelect.innerHTML = '<option value="">Select a room</option>';
+
+        if (data.available_rooms && data.available_rooms.length > 0) {
+            // Add available rooms to select
+            data.available_rooms.forEach(room => {
+                const option = document.createElement('option');
+                option.value = room.id;
+                option.textContent = `Room ${room.room_number} - ${room.room_type}`;
+                roomSelect.appendChild(option);
+            });
+
+            availabilityMessage.textContent = `${data.available_rooms.length} room(s) available`;
+            availabilityMessage.className = 'text-success';
+            nextStepBtn.disabled = false;
+        } else {
+            availabilityMessage.textContent = 'No rooms available for selected dates';
+            availabilityMessage.className = 'text-warning';
+            nextStepBtn.disabled = true;
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        availabilityMessage.textContent = error.message;
+        availabilityMessage.className = 'text-danger';
+        roomSelect.innerHTML = '<option value="">Select a room</option>';
+        nextStepBtn.disabled = true;
+    } finally {
+        checkAvailabilityInProgress = false;
+        loadingSpinner.style.display = 'none';
+    }
+}
+
+function proceedToGuestSelection() {
+    if (!document.getElementById('room_id').value) {
+        alert('Please select a room first');
+        return;
+    }
+    document.getElementById('step1').style.display = 'none';
+    document.getElementById('step2').style.display = 'block';
+}
+
+function backToRoomSelection() {
+    document.getElementById('step2').style.display = 'none';
+    document.getElementById('step1').style.display = 'block';
+}
+</script>
+{% endblock %}

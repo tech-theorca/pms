@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Room Management</h2>
+
+<div class="row mt-4 mb-4">
+    <div class="col">
+        <form method="POST" class="d-flex">
+            <input type="text" class="form-control me-2" name="search_term" placeholder="Search rooms...">
+            <button type="submit" name="search" class="btn btn-outline-primary">Search</button>
+        </form>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">Room List</h5>
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Room Number</th>
+                            <th>Type</th>
+                            <th>Rate</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for room in rooms %}
+                        <tr>
+                            <td>{{ room.room_number }}</td>
+                            <td>{{ room.room_type }}</td>
+                            <td>Rp {{ "{:,.2f}".format(room.rate) }}</td>
+                            <td><span class="badge bg-{{ 'success' if room.status == 'available' else 'warning' }}">{{ room.status }}</span></td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">Add New Room</h5>
+                <form method="POST">
+                    <div class="mb-3">
+                        <label for="room_number" class="form-label">Room Number</label>
+                        <input type="text" class="form-control" id="room_number" name="room_number" required>
+                        <div id="room_number_feedback" class="invalid-feedback"></div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="room_type" class="form-label">Room Type</label>
+                        <select class="form-control" id="room_type" name="room_type" required>
+                            <option value="Standard">Standard</option>
+                            <option value="Deluxe">Deluxe</option>
+                            <option value="Suite">Suite</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="rate" class="form-label">Rate per Night</label>
+                        <input type="number" class="form-control" id="rate" name="rate" step="0.01" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Add Room</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% block scripts %}
+<script>
+$(document).ready(function() {
+    $('#room_number').on('blur', function() {
+        const roomNumber = $(this).val();
+        if (roomNumber) {
+            $.ajax({
+                url: '/check_room_number',
+                method: 'POST',
+                data: { room_number: roomNumber },
+                success: function(response) {
+                    const input = $('#room_number');
+                    if (response.exists) {
+                        input.addClass('is-invalid').removeClass('is-valid');
+                        $('#room_number_feedback').text('This room number already exists');
+                    } else {
+                        input.addClass('is-valid').removeClass('is-invalid');
+                        $('#room_number_feedback').text('');
+                    }
+                }
+            });
+        }
+    });
+});
+</script>
+{% endblock %}
+{% endblock %}
