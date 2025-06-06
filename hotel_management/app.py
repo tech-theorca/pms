@@ -54,6 +54,19 @@ def rooms():
 
 @app.route('/guests', methods=['GET', 'POST'])
 def guests():
+    # Add this list of countries
+    countries = [
+        {"code": "US", "name": "United States", "nationality": "American"},
+        {"code": "GB", "name": "United Kingdom", "nationality": "British"},
+        {"code": "FR", "name": "France", "nationality": "French"},
+        {"code": "DE", "name": "Germany", "nationality": "German"},
+        {"code": "IT", "name": "Italy", "nationality": "Italian"},
+        {"code": "ES", "name": "Spain", "nationality": "Spanish"},
+        {"code": "PT", "name": "Portugal", "nationality": "Portuguese"},
+        {"code": "ID", "name": "Indonesia", "nationality": "Indonesian"},
+        # Add more countries as needed
+    ]
+    
     if request.method == 'POST':
         if 'search' in request.form:
             search_term = request.form['search_term']
@@ -98,7 +111,7 @@ def guests():
             guests = hotel.session.query(Guest).all()
     else:
         guests = hotel.session.query(Guest).all()
-    return render_template('guests.html', guests=guests)
+    return render_template('guests.html', guests=guests, countries=countries)
 
 @app.route('/bookings', methods=['GET', 'POST'])
 def bookings():
@@ -254,6 +267,27 @@ def check_room_availability():
             'error': 'Error fetching available rooms. Please try again.',
             'details': str(e) if app.debug else None
         }), 500
+
+@app.route('/guests/<int:guest_id>', methods=['GET'])
+def get_guest(guest_id):
+    try:
+        guest = hotel.session.query(Guest).get(guest_id)
+        if guest:
+            return jsonify({
+                'id': guest.id,
+                'first_name': guest.first_name,
+                'last_name': guest.last_name,
+                'email': guest.email,
+                'phone': guest.phone,
+                'id_type': guest.id_type,
+                'country': guest.country,
+                'nationality': guest.nationality,
+                'date_of_birth': guest.date_of_birth.strftime('%Y-%m-%d'),
+                'address': guest.address
+            })
+        return jsonify({'error': 'Guest not found'}), 404
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 if __name__ == '__main__':
     app.run(debug=True)

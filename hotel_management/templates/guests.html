@@ -99,11 +99,21 @@
                     <div class="row">
                         <div class="col-md-6 mb-3">
                             <label for="country" class="form-label">Country</label>
-                            <input type="text" class="form-control" id="country" name="country" required>
+                            <select class="form-select" id="country" name="country" required>
+                                <option value="">Select Country</option>
+                                {% for country in countries %}
+                                <option value="{{ country.code }}">{{ country.name }}</option>
+                                {% endfor %}
+                            </select>
                         </div>
                         <div class="col-md-6 mb-3">
                             <label for="nationality" class="form-label">Nationality</label>
-                            <input type="text" class="form-control" id="nationality" name="nationality" required>
+                            <select class="form-select" id="nationality" name="nationality" required>
+                                <option value="">Select Nationality</option>
+                                {% for country in countries %}
+                                <option value="{{ country.nationality }}">{{ country.nationality }}</option>
+                                {% endfor %}
+                            </select>
                         </div>
                     </div>
                     <div class="mb-3">
@@ -119,22 +129,248 @@
         </div>
     </div>
 </div>
+<!-- View Guest Modal -->
+<div class="modal fade" id="viewGuestModal" tabindex="-1" aria-labelledby="viewGuestModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="viewGuestModalLabel">Guest Details</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label class="fw-bold">First Name:</label>
+                        <p id="view_first_name"></p>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="fw-bold">Last Name:</label>
+                        <p id="view_last_name"></p>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label class="fw-bold">Email:</label>
+                        <p id="view_email"></p>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="fw-bold">Phone:</label>
+                        <p id="view_phone"></p>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label class="fw-bold">ID Type:</label>
+                        <p id="view_id_type"></p>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="fw-bold">Date of Birth:</label>
+                        <p id="view_date_of_birth"></p>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label class="fw-bold">Country:</label>
+                        <p id="view_country"></p>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="fw-bold">Nationality:</label>
+                        <p id="view_nationality"></p>
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label class="fw-bold">Address:</label>
+                    <p id="view_address"></p>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock %}
 
 {% block scripts %}
 <script>
+// Initialize Select2 for country and nationality dropdowns
+$(document).ready(function() {
+    $('#country, #nationality').select2({
+        dropdownParent: $('#addGuestModal'),
+        width: '100%'
+    });
+
+    // Reset form when modal is closed
+    $('#addGuestModal').on('hidden.bs.modal', function () {
+        $('#addGuestForm').trigger('reset');
+        $('#country, #nationality').val('').trigger('change');
+        clearValidationErrors();
+    });
+
+    // Phone number formatting
+    $('#phone').on('input', function() {
+        let phone = this.value.replace(/\D/g, '');
+        if (phone.length > 10) phone = phone.substr(0, 10);
+        const formatted = phone.replace(/^(\d{3})(\d{3})(\d{4})$/, '($1) $2-$3');
+        this.value = formatted;
+    });
+});
+
+function clearValidationErrors() {
+    // Remove all error messages and validation styles
+    $('.is-invalid').removeClass('is-invalid');
+    $('.invalid-feedback').remove();
+}
+
+function displayValidationError(fieldId, message) {
+    const field = document.getElementById(fieldId);
+    field.classList.add('is-invalid');
+    // Remove existing error message if any
+    const existingError = field.nextElementSibling;
+    if (existingError && existingError.classList.contains('invalid-feedback')) {
+        existingError.remove();
+    }
+    // Add new error message
+    const errorDiv = document.createElement('div');
+    errorDiv.className = 'invalid-feedback';
+    errorDiv.textContent = message;
+    field.parentNode.insertBefore(errorDiv, field.nextSibling);
+}
+
 function submitGuestForm() {
+    clearValidationErrors();
     const form = document.getElementById('addGuestForm');
+    const submitButton = document.querySelector('#addGuestModal .btn-primary');
+    
     if (form.checkValidity()) {
-        form.submit();
+        // Disable submit button and show loading state
+        submitButton.disabled = true;
+        submitButton.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Adding...';
+
+        const formData = new FormData(form);
+        fetch('/guests', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Show success message
+                Swal.fire({
+                    title: 'Success!',
+                    text: 'Guest added successfully',
+                    icon: 'success',
+                    timer: 2000,
+                    showConfirmButton: false
+                }).then(() => {
+                    window.location.reload();
+                });
+            } else {
+                // Handle validation errors
+                if (data.errors) {
+                    Object.keys(data.errors).forEach(field => {
+                        displayValidationError(field, data.errors[field]);
+                    });
+                }
+                // Show error message
+                Swal.fire({
+                    title: 'Error!',
+                    text: data.error || 'Error adding guest',
+                    icon: 'error'
+                });
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            Swal.fire({
+                title: 'Error!',
+                text: 'An unexpected error occurred',
+                icon: 'error'
+            });
+        })
+        .finally(() => {
+            // Re-enable submit button and restore text
+            submitButton.disabled = false;
+            submitButton.textContent = 'Add Guest';
+        });
     } else {
+        // Handle invalid form
+        Array.from(form.elements).forEach(element => {
+            if (!element.validity.valid) {
+                displayValidationError(element.id, element.validationMessage);
+            }
+        });
         form.reportValidity();
     }
 }
 
 function viewGuest(guestId) {
-    // TODO: Implement guest details view
-    alert('View guest details: ' + guestId);
+    const modal = document.getElementById('viewGuestModal');
+    const modalBody = modal.querySelector('.modal-body');
+    const modalContent = modal.querySelector('.modal-content');
+    const loadingSpinner = '<div class="text-center py-5"><div class="spinner-border" role="status"><span class="visually-hidden">Loading...</span></div></div>';
+    
+    // Show loading spinner
+    modalBody.style.display = 'none';
+    modalContent.insertAdjacentHTML('beforeend', loadingSpinner);
+    
+    // Show modal with loading state
+    const modalInstance = new bootstrap.Modal(modal);
+    modalInstance.show();
+
+    fetch(`/guests/${guestId}`)
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(response.status === 404 ? 'Guest not found' : 'Failed to load guest details');
+            }
+            return response.json();
+        })
+        .then(guest => {
+            // Remove loading spinner
+            const spinner = modalContent.querySelector('.text-center');
+            if (spinner) spinner.remove();
+            modalBody.style.display = 'block';
+            
+            // Format date of birth
+            const dob = guest.date_of_birth ? new Date(guest.date_of_birth).toLocaleDateString() : 'N/A';
+            
+            // Populate modal with guest details
+            document.getElementById('view_first_name').textContent = guest.first_name || 'N/A';
+            document.getElementById('view_last_name').textContent = guest.last_name || 'N/A';
+            document.getElementById('view_email').textContent = guest.email || 'N/A';
+            document.getElementById('view_phone').textContent = guest.phone || 'N/A';
+            document.getElementById('view_id_type').textContent = guest.id_type || 'N/A';
+            document.getElementById('view_country').textContent = guest.country || 'N/A';
+            document.getElementById('view_nationality').textContent = guest.nationality || 'N/A';
+            document.getElementById('view_date_of_birth').textContent = dob;
+            document.getElementById('view_address').textContent = guest.address || 'N/A';
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            // Remove loading spinner
+            const spinner = modalContent.querySelector('.text-center');
+            if (spinner) spinner.remove();
+            
+            // Show error message in modal body
+            modalBody.style.display = 'block';
+            modalBody.innerHTML = `
+                <div class="alert alert-danger" role="alert">
+                    <i class="fas fa-exclamation-circle me-2"></i>
+                    ${error.message || 'Error loading guest details. Please try again.'}
+                </div>
+            `;
+            
+            // Add a retry button
+            const modalFooter = modal.querySelector('.modal-footer');
+            const retryButton = document.createElement('button');
+            retryButton.className = 'btn btn-primary';
+            retryButton.textContent = 'Retry';
+            retryButton.onclick = () => {
+                modalInstance.hide();
+                setTimeout(() => viewGuest(guestId), 300);
+            };
+            modalFooter.insertBefore(retryButton, modalFooter.firstChild);
+        });
 }
 </script>
 {% endblock %}
