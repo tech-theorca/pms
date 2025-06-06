@@ -2,71 +2,139 @@
 {% block content %}
 <h2>Guest Management</h2>
 <div class="row mt-4 mb-4">
-    <div class="col">
+    <div class="col-md-8">
         <form method="POST" class="d-flex">
             <input type="text" class="form-control me-2" name="search_term" placeholder="Search guests...">
             <button type="submit" name="search" class="btn btn-outline-primary">Search</button>
         </form>
     </div>
+    <div class="col-md-4 text-end">
+        <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addGuestModal">
+            Add New Guest
+        </button>
+    </div>
 </div>
 
-<div class="row">
-    <div class="col-md-8">
-        <div class="card">
-            <div class="card-body">
-                <h5 class="card-title">Guest List</h5>
-                <table class="table">
-                    <thead>
-                        <tr>
-                            <th>ID</th>
-                            <th>Name</th>
-                            <th>Email</th>
-                            <th>Phone</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for guest in guests %}
-                        <tr>
-                            <td>{{ guest.id }}</td>
-                            <td>{{ guest.first_name }} {{ guest.last_name }}</td>
-                            <td>{{ guest.email }}</td>
-                            <td>{{ guest.phone }}</td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
-        </div>
+<div class="card">
+    <div class="card-body">
+        <h5 class="card-title">Guest List</h5>
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Name</th>
+                    <th>Email</th>
+                    <th>Phone</th>
+                    <th>ID Type</th>
+                    <th>Country</th>
+                    <th>Nationality</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for guest in guests %}
+                <tr>
+                    <td>{{ guest.id }}</td>
+                    <td>{{ guest.first_name }} {{ guest.last_name }}</td>
+                    <td>{{ guest.email }}</td>
+                    <td>{{ guest.phone }}</td>
+                    <td>{{ guest.id_type }}</td>
+                    <td>{{ guest.country }}</td>
+                    <td>{{ guest.nationality }}</td>
+                    <td>
+                        <button class="btn btn-sm btn-info" onclick="viewGuest({{ guest.id }})">View</button>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
     </div>
-    <div class="col-md-4">
-        <div class="card">
-            <div class="card-body">
-                <h5 class="card-title">Add New Guest</h5>
-                <form method="POST">
-                    <div class="mb-3">
-                        <label for="first_name" class="form-label">First Name</label>
-                        <input type="text" class="form-control" id="first_name" name="first_name" required>
+</div>
+
+<!-- Add Guest Modal -->
+<div class="modal fade" id="addGuestModal" tabindex="-1" aria-labelledby="addGuestModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="addGuestModalLabel">Add New Guest</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form method="POST" id="addGuestForm">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="first_name" class="form-label">First Name</label>
+                            <input type="text" class="form-control" id="first_name" name="first_name" required>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="last_name" class="form-label">Last Name</label>
+                            <input type="text" class="form-control" id="last_name" name="last_name" required>
+                        </div>
                     </div>
-                    <div class="mb-3">
-                        <label for="last_name" class="form-label">Last Name</label>
-                        <input type="text" class="form-control" id="last_name" name="last_name" required>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="email" class="form-label">Email</label>
+                            <input type="email" class="form-control" id="email" name="email" required>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="phone" class="form-label">Phone</label>
+                            <input type="tel" class="form-control" id="phone" name="phone" required>
+                        </div>
                     </div>
-                    <div class="mb-3">
-                        <label for="email" class="form-label">Email</label>
-                        <input type="email" class="form-control" id="email" name="email" required>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="id_type" class="form-label">ID Type</label>
+                            <select class="form-control" id="id_type" name="id_type" required>
+                                <option value="">Select ID Type</option>
+                                <option value="passport">Passport</option>
+                                <option value="national_id">National ID</option>
+                                <option value="drivers_license">Driver's License</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="date_of_birth" class="form-label">Date of Birth</label>
+                            <input type="date" class="form-control" id="date_of_birth" name="date_of_birth" required>
+                        </div>
                     </div>
-                    <div class="mb-3">
-                        <label for="phone" class="form-label">Phone</label>
-                        <input type="tel" class="form-control" id="phone" name="phone" required>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="country" class="form-label">Country</label>
+                            <input type="text" class="form-control" id="country" name="country" required>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="nationality" class="form-label">Nationality</label>
+                            <input type="text" class="form-control" id="nationality" name="nationality" required>
+                        </div>
                     </div>
                     <div class="mb-3">
                         <label for="address" class="form-label">Address</label>
                         <textarea class="form-control" id="address" name="address" rows="3" required></textarea>
                     </div>
-                    <button type="submit" class="btn btn-primary">Add Guest</button>
                 </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-primary" onclick="submitGuestForm()">Add Guest</button>
             </div>
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function submitGuestForm() {
+    const form = document.getElementById('addGuestForm');
+    if (form.checkValidity()) {
+        form.submit();
+    } else {
+        form.reportValidity();
+    }
+}
+
+function viewGuest(guestId) {
+    // TODO: Implement guest details view
+    alert('View guest details: ' + guestId);
+}
+</script>
 {% endblock %}

@@ -25,26 +25,29 @@ def index():
 @app.route('/rooms', methods=['GET', 'POST'])
 def rooms():
     if request.method == 'POST':
-        if 'search' in request.form:
-            search_term = request.form['search_term']
-            rooms = hotel.session.query(Room).filter(
-                or_(
-                    Room.room_number.ilike(f'%{search_term}%'),
-                    Room.room_type.ilike(f'%{search_term}%')
-                )
-            ).all()
-        else:
+        try:
             room_number = request.form['room_number']
             room_type = request.form['room_type']
-            rate = float(request.form['rate'])
-            try:
-                hotel.add_room(room_number, room_type, rate)
-                flash('Room added successfully!', 'success')
-            except ValueError as e:
-                flash(str(e), 'error')
-            except Exception as e:
-                flash(f'Error adding room: {str(e)}', 'error')
-            rooms = hotel.session.query(Room).all()
+            rate = request.form['rate']
+            
+            hotel.add_room(room_number, room_type, rate)
+            flash('Room added successfully!', 'success')
+            
+        except Exception as e:
+            # Roll back the session on error
+            hotel.session.rollback()  # Changed from db.session to hotel.session
+            flash(f'Error adding room: {str(e)}', 'error')
+            
+        return redirect(url_for('rooms'))
+    
+    if 'search' in request.form:
+        search_term = request.form['search_term']
+        rooms = hotel.session.query(Room).filter(
+            or_(
+                Room.room_number.ilike(f'%{search_term}%'),
+                Room.room_type.ilike(f'%{search_term}%')
+            )
+        ).all()
     else:
         rooms = hotel.session.query(Room).all()
     return render_template('rooms.html', rooms=rooms)
@@ -54,21 +57,41 @@ def guests():
     if request.method == 'POST':
         if 'search' in request.form:
             search_term = request.form['search_term']
-            guests = hotel.session.query(Guest).filter(  # Use Guest directly
+            guests = hotel.session.query(Guest).filter(
                 or_(
                     Guest.first_name.ilike(f'%{search_term}%'),
                     Guest.last_name.ilike(f'%{search_term}%'),
-                    Guest.email.ilike(f'%{search_term}%')
+                    Guest.email.ilike(f'%{search_term}%'),
+                    Guest.phone.ilike(f'%{search_term}%'),
+                    Guest.nationality.ilike(f'%{search_term}%'),
+                    Guest.country.ilike(f'%{search_term}%')
                 )
             ).all()
         else:
+            # Get form data
             first_name = request.form['first_name']
             last_name = request.form['last_name']
             email = request.form['email']
             phone = request.form['phone']
             address = request.form['address']
+            id_type = request.form['id_type']
+            country = request.form['country']
+            nationality = request.form['nationality']
+            date_of_birth = datetime.strptime(request.form['date_of_birth'], '%Y-%m-%d')
+            
             try:
-                hotel.add_guest(first_name, last_name, email, phone, address)
+                # Create new guest with all fields
+                guest = hotel.add_guest(
+                    first_name=first_name,
+                    last_name=last_name,
+                    email=email,
+                    phone=phone,
+                    address=address,
+                    id_type=id_type,
+                    country=country,
+                    nationality=nationality,
+                    date_of_birth=date_of_birth
+                )
                 flash('Guest added successfully!', 'success')
             except Exception as e:
                 flash(f'Error adding guest: {str(e)}', 'error')

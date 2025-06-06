@@ -34,23 +34,26 @@ class HotelManagementSystem:
         self.session = self.Session()
 
     def add_room(self, room_number, room_type, rate):
-        # Check if room number already exists
-        existing_room = self.session.query(Room).filter_by(room_number=room_number).first()
-        if existing_room:
-            raise ValueError(f"Room number {room_number} already exists")
-            
-        room = Room(room_number=room_number, room_type=room_type, rate=rate)
-        self.session.add(room)
-        self.session.commit()
-        return room
+        try:
+            room = Room(room_number=room_number, room_type=room_type, rate=rate)
+            self.session.add(room)
+            self.session.commit()
+            return True
+        except Exception as e:
+            self.session.rollback()
+            raise e
 
-    def add_guest(self, first_name, last_name, email, phone, address):
+    def add_guest(self, first_name, last_name, email, phone, address, id_type, country, nationality, date_of_birth):
         guest = Guest(
             first_name=first_name,
             last_name=last_name,
             email=email,
             phone=phone,
-            address=address
+            address=address,
+            id_type=id_type,
+            country=country,
+            nationality=nationality,
+            date_of_birth=date_of_birth
         )
         self.session.add(guest)
         self.session.commit()

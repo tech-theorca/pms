@@ -8,7 +8,16 @@ hotel = HotelManagementSystem()
 room = hotel.add_room('101', 'Standard', 100.0)
 
 # Add a guest
-guest = hotel.add_guest('John', 'Doe', 'john@example.com', '1234567890', '123 Main St')
+guest = hotel.add_guest(
+    'John', 'Doe',
+    'john@example.com',
+    '1234567890',
+    '123 Main St',
+    'passport',
+    'United States',
+    'American',
+    datetime(1990, 1, 1)  # Example date of birth
+)
 
 # Create a booking
 check_in = datetime.now()
