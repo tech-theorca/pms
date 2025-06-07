@@ -42,7 +42,8 @@
                     <td>{{ guest.country }}</td>
                     <td>{{ guest.nationality }}</td>
                     <td>
-                        <button class="btn btn-sm btn-info" onclick="viewGuest({{ guest.id }})">View</button>
+                        <button class="btn btn-sm btn-info me-1" onclick="viewGuest({{ guest.id }})">View</button>
+                        <button class="btn btn-sm btn-warning" onclick="editGuest({{ guest.id }})">Edit</button>
                     </td>
                 </tr>
                 {% endfor %}
@@ -61,6 +62,7 @@
             </div>
             <div class="modal-body">
                 <form method="POST" id="addGuestForm">
+                    <!-- First name and last name remain required -->
                     <div class="row">
                         <div class="col-md-6 mb-3">
                             <label for="first_name" class="form-label">First Name</label>
@@ -71,20 +73,24 @@
                             <input type="text" class="form-control" id="last_name" name="last_name" required>
                         </div>
                     </div>
+                    
+                    <!-- Email becomes optional -->
                     <div class="row">
                         <div class="col-md-6 mb-3">
                             <label for="email" class="form-label">Email</label>
-                            <input type="email" class="form-control" id="email" name="email" required>
+                            <input type="email" class="form-control" id="email" name="email">
                         </div>
                         <div class="col-md-6 mb-3">
                             <label for="phone" class="form-label">Phone</label>
                             <input type="tel" class="form-control" id="phone" name="phone" required>
                         </div>
                     </div>
+                    
+                    <!-- ID Type and Date of Birth become optional -->
                     <div class="row">
                         <div class="col-md-6 mb-3">
                             <label for="id_type" class="form-label">ID Type</label>
-                            <select class="form-control" id="id_type" name="id_type" required>
+                            <select class="form-control" id="id_type" name="id_type">
                                 <option value="">Select ID Type</option>
                                 <option value="passport">Passport</option>
                                 <option value="national_id">National ID</option>
@@ -93,13 +99,15 @@
                         </div>
                         <div class="col-md-6 mb-3">
                             <label for="date_of_birth" class="form-label">Date of Birth</label>
-                            <input type="date" class="form-control" id="date_of_birth" name="date_of_birth" required>
+                            <input type="date" class="form-control" id="date_of_birth" name="date_of_birth">
                         </div>
                     </div>
+                    
+                    <!-- Country and Nationality become optional -->
                     <div class="row">
                         <div class="col-md-6 mb-3">
                             <label for="country" class="form-label">Country</label>
-                            <select class="form-select" id="country" name="country" required>
+                            <select class="form-select" id="country" name="country">
                                 <option value="">Select Country</option>
                                 {% for country in countries %}
                                 <option value="{{ country.code }}">{{ country.name }}</option>
@@ -108,7 +116,7 @@
                         </div>
                         <div class="col-md-6 mb-3">
                             <label for="nationality" class="form-label">Nationality</label>
-                            <select class="form-select" id="nationality" name="nationality" required>
+                            <select class="form-select" id="nationality" name="nationality">
                                 <option value="">Select Nationality</option>
                                 {% for country in countries %}
                                 <option value="{{ country.nationality }}">{{ country.nationality }}</option>
@@ -116,14 +124,15 @@
                             </select>
                         </div>
                     </div>
+                    
+                    <!-- Address becomes optional -->
                     <div class="mb-3">
                         <label for="address" class="form-label">Address</label>
-                        <textarea class="form-control" id="address" name="address" rows="3" required></textarea>
+                        <textarea class="form-control" id="address" name="address" rows="3"></textarea>
                     </div>
                 </form>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
                 <button type="button" class="btn btn-primary" onclick="submitGuestForm()">Add Guest</button>
             </div>
         </div>
@@ -184,6 +193,7 @@
                 </div>
             </div>
             <div class="modal-footer">
+                <button type="button" class="btn btn-primary" onclick="editGuest()">Edit</button>
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
             </div>
         </div>
@@ -193,184 +203,460 @@
 
 {% block scripts %}
 <script>
-// Initialize Select2 for country and nationality dropdowns
+// Initialize when document is ready
 $(document).ready(function() {
     $('#country, #nationality').select2({
         dropdownParent: $('#addGuestModal'),
         width: '100%'
     });
-
-    // Reset form when modal is closed
-    $('#addGuestModal').on('hidden.bs.modal', function () {
-        $('#addGuestForm').trigger('reset');
-        $('#country, #nationality').val('').trigger('change');
-        clearValidationErrors();
-    });
-
-    // Phone number formatting
-    $('#phone').on('input', function() {
-        let phone = this.value.replace(/\D/g, '');
-        if (phone.length > 10) phone = phone.substr(0, 10);
-        const formatted = phone.replace(/^(\d{3})(\d{3})(\d{4})$/, '($1) $2-$3');
-        this.value = formatted;
-    });
 });
 
-function clearValidationErrors() {
-    // Remove all error messages and validation styles
-    $('.is-invalid').removeClass('is-invalid');
-    $('.invalid-feedback').remove();
-}
-
-function displayValidationError(fieldId, message) {
-    const field = document.getElementById(fieldId);
-    field.classList.add('is-invalid');
-    // Remove existing error message if any
-    const existingError = field.nextElementSibling;
-    if (existingError && existingError.classList.contains('invalid-feedback')) {
-        existingError.remove();
-    }
-    // Add new error message
-    const errorDiv = document.createElement('div');
-    errorDiv.className = 'invalid-feedback';
-    errorDiv.textContent = message;
-    field.parentNode.insertBefore(errorDiv, field.nextSibling);
-}
-
-function submitGuestForm() {
-    clearValidationErrors();
-    const form = document.getElementById('addGuestForm');
-    const submitButton = document.querySelector('#addGuestModal .btn-primary');
+// Function to view guest details
+function viewGuest(guestId) {
+    if (!guestId) return;
     
-    if (form.checkValidity()) {
-        // Disable submit button and show loading state
-        submitButton.disabled = true;
-        submitButton.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Adding...';
-
-        const formData = new FormData(form);
-        fetch('/guests', {
-            method: 'POST',
-            body: formData
+    const modal = document.getElementById('viewGuestModal');
+    const modalBody = modal.querySelector('.modal-body');
+    
+    // Show loading state
+    modalBody.innerHTML = '<div class="text-center"><div class="spinner-border" role="status"></div></div>';
+    
+    // Show the modal
+    new bootstrap.Modal(modal).show();
+    
+    // Reset modal footer to view mode
+    modal.querySelector('.modal-footer').innerHTML = `
+        <button type="button" class="btn btn-primary" onclick="editGuest(${guestId})">Edit</button>
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+    `;
+    
+    // Fetch guest data
+    fetch(`/guests/${guestId}`)
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.json();
         })
+        .then(data => {
+            // Restore the original modal body structure and fill with data
+            modalBody.innerHTML = `
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label class="fw-bold">First Name:</label>
+                        <p id="view_first_name">${data.first_name}</p>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="fw-bold">Last Name:</label>
+                        <p id="view_last_name">${data.last_name}</p>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label class="fw-bold">Email:</label>
+                        <p id="view_email">${data.email}</p>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="fw-bold">Phone:</label>
+                        <p id="view_phone">${data.phone}</p>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label class="fw-bold">ID Type:</label>
+                        <p id="view_id_type">${data.id_type}</p>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="fw-bold">Date of Birth:</label>
+                        <p id="view_date_of_birth">${data.date_of_birth}</p>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label class="fw-bold">Country:</label>
+                        <p id="view_country">${data.country}</p>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="fw-bold">Nationality:</label>
+                        <p id="view_nationality">${data.nationality}</p>
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label class="fw-bold">Address:</label>
+                    <p id="view_address">${data.address}</p>
+                </div>`;
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            modalBody.innerHTML = `<div class="alert alert-danger">Error loading guest data: ${error.message}</div>`;
+        });
+}
+
+// Function to edit guest
+function editGuest(guestId) {
+    if (!guestId) return;
+    
+    const modal = document.getElementById('viewGuestModal');
+    const modalBody = modal.querySelector('.modal-body');
+    
+    // Show loading state
+    modalBody.innerHTML = '<div class="text-center"><div class="spinner-border" role="status"></div></div>';
+    
+    // Show the modal if not already shown
+    if (!modal.classList.contains('show')) {
+        new bootstrap.Modal(modal).show();
+    }
+    
+    // Update modal footer for edit mode
+    modal.querySelector('.modal-footer').innerHTML = `
+        <button type="button" class="btn btn-success" onclick="saveGuest(${guestId})">Save Changes</button>
+        <button type="button" class="btn btn-secondary" onclick="cancelEdit(${guestId})">Cancel</button>
+    `;
+    
+    // Fetch guest data for editing
+    fetch(`/guests/${guestId}`)
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            // Inside the editGuest function, update the form HTML to include country and nationality
+modalBody.innerHTML = `
+    <form id="editGuestForm">
+        <div class="row">
+            <div class="col-md-6 mb-3">
+                <label class="fw-bold">First Name:</label>
+                <input type="text" class="form-control" id="edit_first_name" value="${data.first_name}">
+            </div>
+            <div class="col-md-6 mb-3">
+                <label class="fw-bold">Last Name:</label>
+                <input type="text" class="form-control" id="edit_last_name" value="${data.last_name}">
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-md-6 mb-3">
+                <label class="fw-bold">Email:</label>
+                <input type="email" class="form-control" id="edit_email" value="${data.email}">
+            </div>
+            <div class="col-md-6 mb-3">
+                <label class="fw-bold">Phone:</label>
+                <input type="tel" class="form-control" id="edit_phone" value="${data.phone}">
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-md-6 mb-3">
+                <label class="fw-bold">ID Type:</label>
+                <select class="form-control" id="edit_id_type">
+                    <option value="">Select ID Type</option>
+                    <option value="passport" ${data.id_type === 'Passport' ? 'selected' : ''}>Passport</option>
+                    <option value="national_id" ${data.id_type === 'National ID' ? 'selected' : ''}>National ID</option>
+                    <option value="drivers_license" ${data.id_type === "Driver's License" ? 'selected' : ''}>Driver's License</option>
+                </select>
+            </div>
+            <div class="col-md-6 mb-3">
+                <label class="fw-bold">Date of Birth:</label>
+                <input type="date" class="form-control" id="edit_date_of_birth" value="${data.date_of_birth}">
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-md-6 mb-3">
+                <label class="fw-bold">Country:</label>
+                <select class="form-select" id="edit_country" name="country">
+                    <option value="">Select Country</option>
+                    {% for country in countries %}
+                    <option value="{{ country.code }}" ${data.country === '{{ country.code }}' ? 'selected' : ''}>{{ country.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-6 mb-3">
+                <label class="fw-bold">Nationality:</label>
+                <select class="form-select" id="edit_nationality" name="nationality">
+                    <option value="">Select Nationality</option>
+                    {% for country in countries %}
+                    <option value="{{ country.nationality }}" ${data.nationality === '{{ country.nationality }}' ? 'selected' : ''}>{{ country.nationality }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
+        <div class="mb-3">
+            <label class="fw-bold">Address:</label>
+            <textarea class="form-control" id="edit_address" rows="3">${data.address}</textarea>
+        </div>
+    </form>`;
+
+// Initialize Select2 for country and nationality dropdowns
+$('#edit_country, #edit_nationality').select2({
+    dropdownParent: $('#viewGuestModal'),
+    width: '100%'
+});
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            modalBody.innerHTML = `<div class="alert alert-danger">Error loading guest data: ${error.message}</div>`;
+        });
+}
+
+// Function to save guest changes
+function saveGuest(guestId) {
+    if (!guestId) return;
+    
+    const formData = {
+        first_name: document.getElementById('edit_first_name').value,
+        last_name: document.getElementById('edit_last_name').value,
+        email: document.getElementById('edit_email').value,
+        phone: document.getElementById('edit_phone').value,
+        id_type: document.getElementById('edit_id_type').value,
+        date_of_birth: document.getElementById('edit_date_of_birth').value,
+        country: document.getElementById('edit_country').value,
+        nationality: document.getElementById('edit_nationality').value,
+        address: document.getElementById('edit_address').value
+    };
+    
+    fetch(`/guests/${guestId}`, {
+        method: 'PUT',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(formData)
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return response.json();
+    })
+    .then(data => {
+        // Close the current modal and remove backdrop
+        const modal = document.getElementById('viewGuestModal');
+        const modalInstance = bootstrap.Modal.getInstance(modal);
+        if (modalInstance) {
+            modalInstance.hide();
+        }
+        
+        // Remove any lingering backdrop
+        const backdrop = document.querySelector('.modal-backdrop');
+        if (backdrop) {
+            backdrop.remove();
+        }
+        
+        // Remove modal-open class from body
+        document.body.classList.remove('modal-open');
+        document.body.style.overflow = '';
+        document.body.style.paddingRight = '';
+
+        // Show success message
+        Swal.fire({
+            icon: 'success',
+            title: 'Success',
+            text: 'Guest information updated successfully!'
+        }).then(() => {
+            // Reload the page to show updated data
+            window.location.reload();
+        });
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        Swal.fire({
+            icon: 'error',
+            title: 'Error',
+            text: `Failed to update guest: ${error.message}`
+        });
+    });
+}
+
+// Function to cancel edit mode
+function cancelEdit(guestId) {
+    const modal = document.getElementById('viewGuestModal');
+    const modalInstance = bootstrap.Modal.getInstance(modal);
+    if (modalInstance) {
+        modalInstance.hide();
+    }
+    
+    // Remove any lingering backdrop
+    const backdrop = document.querySelector('.modal-backdrop');
+    if (backdrop) {
+        backdrop.remove();
+    }
+    
+    // Remove modal-open class from body
+    document.body.classList.remove('modal-open');
+    document.body.style.overflow = '';
+    document.body.style.paddingRight = '';
+}
+</script>
+{% endblock %}
+
+function toggleEdit(enable) {
+    const inputs = document.querySelectorAll('#viewGuestModal input, #viewGuestModal textarea');
+    inputs.forEach(input => input.disabled = !enable);
+    
+    const editBtn = document.querySelector('#viewGuestModal .btn-primary');
+    const saveBtn = document.querySelector('#viewGuestModal .btn-success');
+    
+    if (enable) {
+        editBtn.classList.add('d-none');
+        saveBtn.classList.remove('d-none');
+    } else {
+        editBtn.classList.remove('d-none');
+        saveBtn.classList.add('d-none');
+    }
+}
+
+function saveChanges(guestId) {
+    const data = {
+        first_name: document.getElementById('view_first_name').value,
+        last_name: document.getElementById('view_last_name').value,
+        email: document.getElementById('view_email').value,
+        phone: document.getElementById('view_phone').value,
+        id_type: document.getElementById('view_id_type').value,
+        country: document.getElementById('view_country').value,
+        nationality: document.getElementById('view_nationality').value,
+        date_of_birth: document.getElementById('view_date_of_birth').value,
+        address: document.getElementById('view_address').value
+    };
+
+    fetch(`/guests/${guestId}`, {
+        method: 'PUT',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data)
+    })
+    .then(response => response.json())
+    .then(result => {
+        if (result.success) {
+            Swal.fire({
+                title: 'Success!',
+                text: 'Guest information updated successfully',
+                icon: 'success',
+                timer: 2000,
+                showConfirmButton: false
+            }).then(() => {
+                window.location.reload();
+            });
+        } else {
+            throw new Error(result.error || 'Failed to update guest');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        Swal.fire({
+            title: 'Error!',
+            text: error.message,
+            icon: 'error'
+        });
+    });
+}
+
+function cancelEdit(guestId) {
+    viewGuest(guestId);
+}
+
+<!-- Edit Guest Modal -->
+<div class="modal fade" id="editGuestModal" tabindex="-1" aria-labelledby="editGuestModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="editGuestModalLabel">Edit Guest</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="editGuestForm">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="edit_first_name" class="form-label">First Name</label>
+                            <input type="text" class="form-control" id="edit_first_name" required>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="edit_last_name" class="form-label">Last Name</label>
+                            <input type="text" class="form-control" id="edit_last_name" required>
+                        </div>
+                    </div>
+                    <!-- Add other fields similar to the add guest form -->
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-success" onclick="saveGuestChanges()">Save Changes</button>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+            </div>
+        </div>
+    </div>
+</div>
+let currentEditingGuestId = null;
+
+function openEditModal(guestId) {
+    currentEditingGuestId = guestId;
+    
+    // Fetch guest data
+    fetch(`/guests/${guestId}`)
         .then(response => response.json())
         .then(data => {
             if (data.success) {
-                // Show success message
-                Swal.fire({
-                    title: 'Success!',
-                    text: 'Guest added successfully',
-                    icon: 'success',
-                    timer: 2000,
-                    showConfirmButton: false
-                }).then(() => {
-                    window.location.reload();
-                });
+                // Populate form fields
+                document.getElementById('edit_first_name').value = data.guest.first_name;
+                document.getElementById('edit_last_name').value = data.guest.last_name;
+                // Populate other fields similarly
+                
+                // Show the modal
+                const modal = new bootstrap.Modal(document.getElementById('editGuestModal'));
+                modal.show();
             } else {
-                // Handle validation errors
-                if (data.errors) {
-                    Object.keys(data.errors).forEach(field => {
-                        displayValidationError(field, data.errors[field]);
-                    });
-                }
-                // Show error message
-                Swal.fire({
-                    title: 'Error!',
-                    text: data.error || 'Error adding guest',
-                    icon: 'error'
-                });
+                throw new Error(data.error || 'Failed to fetch guest data');
             }
         })
         .catch(error => {
             console.error('Error:', error);
             Swal.fire({
                 title: 'Error!',
-                text: 'An unexpected error occurred',
+                text: error.message,
                 icon: 'error'
             });
-        })
-        .finally(() => {
-            // Re-enable submit button and restore text
-            submitButton.disabled = false;
-            submitButton.textContent = 'Add Guest';
         });
-    } else {
-        // Handle invalid form
-        Array.from(form.elements).forEach(element => {
-            if (!element.validity.valid) {
-                displayValidationError(element.id, element.validationMessage);
-            }
-        });
-        form.reportValidity();
+}
+
+function saveGuestChanges() {
+    if (!currentEditingGuestId) {
+        console.error('No guest ID set for editing');
+        return;
     }
-}
-
-function viewGuest(guestId) {
-    const modal = document.getElementById('viewGuestModal');
-    const modalBody = modal.querySelector('.modal-body');
-    const modalContent = modal.querySelector('.modal-content');
-    const loadingSpinner = '<div class="text-center py-5"><div class="spinner-border" role="status"><span class="visually-hidden">Loading...</span></div></div>';
     
-    // Show loading spinner
-    modalBody.style.display = 'none';
-    modalContent.insertAdjacentHTML('beforeend', loadingSpinner);
-    
-    // Show modal with loading state
-    const modalInstance = new bootstrap.Modal(modal);
-    modalInstance.show();
+    const data = {
+        first_name: document.getElementById('edit_first_name').value.trim(),
+        last_name: document.getElementById('edit_last_name').value.trim(),
+        // Get other field values similarly
+    };
 
-    fetch(`/guests/${guestId}`)
-        .then(response => {
-            if (!response.ok) {
-                throw new Error(response.status === 404 ? 'Guest not found' : 'Failed to load guest details');
-            }
-            return response.json();
-        })
-        .then(guest => {
-            // Remove loading spinner
-            const spinner = modalContent.querySelector('.text-center');
-            if (spinner) spinner.remove();
-            modalBody.style.display = 'block';
-            
-            // Format date of birth
-            const dob = guest.date_of_birth ? new Date(guest.date_of_birth).toLocaleDateString() : 'N/A';
-            
-            // Populate modal with guest details
-            document.getElementById('view_first_name').textContent = guest.first_name || 'N/A';
-            document.getElementById('view_last_name').textContent = guest.last_name || 'N/A';
-            document.getElementById('view_email').textContent = guest.email || 'N/A';
-            document.getElementById('view_phone').textContent = guest.phone || 'N/A';
-            document.getElementById('view_id_type').textContent = guest.id_type || 'N/A';
-            document.getElementById('view_country').textContent = guest.country || 'N/A';
-            document.getElementById('view_nationality').textContent = guest.nationality || 'N/A';
-            document.getElementById('view_date_of_birth').textContent = dob;
-            document.getElementById('view_address').textContent = guest.address || 'N/A';
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            // Remove loading spinner
-            const spinner = modalContent.querySelector('.text-center');
-            if (spinner) spinner.remove();
-            
-            // Show error message in modal body
-            modalBody.style.display = 'block';
-            modalBody.innerHTML = `
-                <div class="alert alert-danger" role="alert">
-                    <i class="fas fa-exclamation-circle me-2"></i>
-                    ${error.message || 'Error loading guest details. Please try again.'}
-                </div>
-            `;
-            
-            // Add a retry button
-            const modalFooter = modal.querySelector('.modal-footer');
-            const retryButton = document.createElement('button');
-            retryButton.className = 'btn btn-primary';
-            retryButton.textContent = 'Retry';
-            retryButton.onclick = () => {
-                modalInstance.hide();
-                setTimeout(() => viewGuest(guestId), 300);
-            };
-            modalFooter.insertBefore(retryButton, modalFooter.firstChild);
+    fetch(`/guests/${currentEditingGuestId}`, {
+        method: 'PUT',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(data)
+    })
+    .then(response => response.json())
+    .then(result => {
+        if (result.success) {
+            Swal.fire({
+                title: 'Success!',
+                text: 'Guest information updated successfully',
+                icon: 'success',
+                timer: 2000,
+                showConfirmButton: false
+            }).then(() => {
+                window.location.reload();
+            });
+        } else {
+            throw new Error(result.error || 'Failed to update guest');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        Swal.fire({
+            title: 'Error!',
+            text: error.message,
+            icon: 'error'
         });
+    });
 }
-</script>
-{% endblock %}

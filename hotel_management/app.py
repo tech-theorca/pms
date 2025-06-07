@@ -81,18 +81,25 @@ def guests():
                 )
             ).all()
         else:
-            # Get form data
-            first_name = request.form['first_name']
-            last_name = request.form['last_name']
-            email = request.form['email']
-            phone = request.form['phone']
-            address = request.form['address']
-            id_type = request.form['id_type']
-            country = request.form['country']
-            nationality = request.form['nationality']
-            date_of_birth = datetime.strptime(request.form['date_of_birth'], '%Y-%m-%d')
-            
             try:
+                # Get form data
+                first_name = request.form['first_name']
+                last_name = request.form['last_name']
+                email = request.form['email']
+                phone = request.form['phone']
+                address = request.form['address']
+                id_type = request.form['id_type']
+                country = request.form['country']
+                nationality = request.form['nationality']
+                
+                # Handle optional date_of_birth
+                date_of_birth = None
+                if request.form['date_of_birth']:
+                    try:
+                        date_of_birth = datetime.strptime(request.form['date_of_birth'], '%Y-%m-%d')
+                    except ValueError:
+                        return jsonify({'success': False, 'error': 'Invalid date format'})
+                
                 # Create new guest with all fields
                 guest = hotel.add_guest(
                     first_name=first_name,
@@ -105,12 +112,12 @@ def guests():
                     nationality=nationality,
                     date_of_birth=date_of_birth
                 )
-                flash('Guest added successfully!', 'success')
+                return jsonify({'success': True})
             except Exception as e:
-                flash(f'Error adding guest: {str(e)}', 'error')
-            guests = hotel.session.query(Guest).all()
-    else:
-        guests = hotel.session.query(Guest).all()
+                return jsonify({'success': False, 'error': str(e)})
+    
+    # Get all guests for display
+    guests = hotel.session.query(Guest).all()
     return render_template('guests.html', guests=guests, countries=countries)
 
 @app.route('/bookings', methods=['GET', 'POST'])
@@ -268,26 +275,66 @@ def check_room_availability():
             'details': str(e) if app.debug else None
         }), 500
 
-@app.route('/guests/<int:guest_id>', methods=['GET'])
+@app.route('/guests/<int:guest_id>', methods=['GET', 'PUT'])
 def get_guest(guest_id):
     try:
         guest = hotel.session.query(Guest).get(guest_id)
-        if guest:
+        if not guest:
+            return jsonify({'error': 'Guest not found'}), 404
+
+        if request.method == 'GET':
             return jsonify({
                 'id': guest.id,
-                'first_name': guest.first_name,
-                'last_name': guest.last_name,
-                'email': guest.email,
-                'phone': guest.phone,
-                'id_type': guest.id_type,
-                'country': guest.country,
-                'nationality': guest.nationality,
-                'date_of_birth': guest.date_of_birth.strftime('%Y-%m-%d'),
-                'address': guest.address
+                'first_name': guest.first_name or 'N/A',
+                'last_name': guest.last_name or 'N/A',
+                'email': guest.email or 'N/A',
+                'phone': guest.phone or 'N/A',
+                'id_type': guest.id_type or 'N/A',
+                'country': guest.country or 'N/A',
+                'nationality': guest.nationality or 'N/A',
+                'date_of_birth': guest.date_of_birth.strftime('%Y-%m-%d') if guest.date_of_birth else 'N/A',
+                'address': guest.address or 'N/A'
             })
-        return jsonify({'error': 'Guest not found'}), 404
+        
+        elif request.method == 'PUT':
+            data = request.get_json()
+            
+            guest.first_name = data.get('first_name')
+            guest.last_name = data.get('last_name')
+            guest.email = data.get('email')
+            guest.phone = data.get('phone')
+            guest.id_type = data.get('id_type')
+            guest.country = data.get('country')
+            guest.nationality = data.get('nationality')
+            guest.address = data.get('address')
+            
+            if date_str := data.get('date_of_birth'):
+                try:
+                    guest.date_of_birth = datetime.strptime(date_str, '%Y-%m-%d')
+                except ValueError:
+                    guest.date_of_birth = None
+            else:
+                guest.date_of_birth = None
+            
+            hotel.session.commit()
+            return jsonify({'success': True, 'message': 'Guest updated successfully'})
+            
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+@app.route('/guests/data')
+def get_guests_data():
+    guests = Guest.query.all()
+    return jsonify([{
+        'id': guest.id,
+        'first_name': guest.first_name,
+        'last_name': guest.last_name,
+        'email': guest.email,
+        'phone': guest.phone,
+        'id_type': guest.id_type,
+        'country': guest.country,
+        'nationality': guest.nationality
+    } for guest in guests])
 
 if __name__ == '__main__':
     app.run(debug=True)

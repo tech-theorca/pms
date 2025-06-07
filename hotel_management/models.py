@@ -21,13 +21,13 @@ class Guest(Base):
     id = Column(Integer, primary_key=True)
     first_name = Column(String(50), nullable=False)
     last_name = Column(String(50), nullable=False)
-    email = Column(String(100), unique=True)
-    phone = Column(String(20), nullable=False)  # Updated to be required
-    address = Column(String(200))
-    id_type = Column(String(50), nullable=False)  # Passport, National ID, etc.
-    country = Column(String(100), nullable=False)  # Country of residence
-    nationality = Column(String(100), nullable=False)  # Nationality
-    date_of_birth = Column(DateTime, nullable=False)  # Date of Birth
+    email = Column(String(100), unique=True, nullable=True)
+    phone = Column(String(20), nullable=False)
+    address = Column(String(200), nullable=True)
+    id_type = Column(String(50), nullable=True)
+    country = Column(String(100), nullable=True)
+    nationality = Column(String(100), nullable=True)
+    date_of_birth = Column(DateTime, nullable=True)
     bookings = relationship('Booking', back_populates='guest')
 
 class Booking(Base):
