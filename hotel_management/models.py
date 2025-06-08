@@ -1,18 +1,30 @@
 from datetime import datetime
-from sqlalchemy import create_engine, Column, Integer, String, Float, DateTime, ForeignKey, Boolean
+from sqlalchemy import create_engine, Column, Integer, String, Float, DateTime, ForeignKey, Boolean, DECIMAL, Text
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
 
 Base = declarative_base()
+
+class RoomType(Base):
+    __tablename__ = 'room_types'
+    
+    id = Column(Integer, primary_key=True)
+    type_name = Column(String(50), unique=True, nullable=False)
+    description = Column(Text, nullable=True)
+    base_price = Column(DECIMAL(10,2), nullable=False)
+    max_guest = Column(Integer, nullable=False)
+    rooms = relationship('Room', back_populates='room_type')
 
 class Room(Base):
     __tablename__ = 'rooms'
     
     id = Column(Integer, primary_key=True)
     room_number = Column(String(10), unique=True, nullable=False)
-    room_type = Column(String(50), nullable=False)
+    room_type_id = Column(Integer, ForeignKey('room_types.id'), nullable=False)
     rate = Column(Float, nullable=False)
     status = Column(String(20), default='available')  # available, occupied, maintenance
+    
+    room_type = relationship('RoomType', back_populates='rooms')
     bookings = relationship('Booking', back_populates='room')
 
 class Guest(Base):

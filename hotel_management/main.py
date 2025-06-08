@@ -1,7 +1,7 @@
 from datetime import datetime
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-from models import Base, Room, Guest, Booking
+from models import Base, Room, Guest, Booking, RoomType
 from dotenv import load_dotenv
 import os
 
@@ -33,13 +33,17 @@ class HotelManagementSystem:
             self.session.close()
         self.session = self.Session()
 
-    def add_room(self, room_number, room_type, rate):
-        self.refresh_session()  # Refresh session before starting new transaction
+    def add_room(self, room_number, room_type_id):
         try:
-            room = Room(room_number=room_number, room_type=room_type, rate=rate)
+            # Get the room type to access its base price
+            room_type = self.session.query(RoomType).get(room_type_id)
+            if not room_type:
+                raise ValueError("Room type not found")
+                
+            room = Room(room_number=room_number, room_type_id=room_type_id, rate=room_type.base_price)
             self.session.add(room)
             self.session.commit()
-            return True
+            return room
         except Exception as e:
             self.session.rollback()
             raise e

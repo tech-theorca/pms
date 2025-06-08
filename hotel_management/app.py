@@ -1,7 +1,7 @@
 from flask import Flask, render_template, request, redirect, url_for, flash, jsonify
 from main import HotelManagementSystem
 from booking_engine import BookingEngine
-from models import Room, Guest, Booking
+from models import Room, Guest, Booking, RoomType
 from datetime import datetime, timedelta
 from sqlalchemy import or_
 from dotenv import load_dotenv
@@ -27,31 +27,30 @@ def rooms():
     if request.method == 'POST' and 'search' not in request.form:
         try:
             room_number = request.form['room_number']
-            room_type = request.form['room_type']
-            rate = request.form['rate']
+            room_type_id = request.form['room_type_id']
             
-            hotel.add_room(room_number, room_type, rate)
+            hotel.add_room(room_number, room_type_id)
             flash('Room added successfully!', 'success')
             
         except Exception as e:
-            # Roll back the session on error
-            hotel.session.rollback()  # Changed from db.session to hotel.session
+            hotel.session.rollback()
             flash(f'Error adding room: {str(e)}', 'error')
             
         return redirect(url_for('rooms'))
     
-    # Handle search (both GET and POST)
     search_term = request.form.get('search_term') if request.method == 'POST' else request.args.get('search_term')
     if search_term:
-        rooms = hotel.session.query(Room).filter(
+        rooms = hotel.session.query(Room).join(RoomType).filter(
             or_(
                 Room.room_number.ilike(f'%{search_term}%'),
-                Room.room_type.ilike(f'%{search_term}%')
+                RoomType.type_name.ilike(f'%{search_term}%')
             )
         ).all()
     else:
         rooms = hotel.session.query(Room).all()
-    return render_template('rooms.html', rooms=rooms)
+    
+    room_types = hotel.session.query(RoomType).all()
+    return render_template('rooms.html', rooms=rooms, room_types=room_types)
 
 @app.route('/guests', methods=['GET', 'POST'])
 def guests():
@@ -264,7 +263,7 @@ def check_room_availability():
             'available_rooms': [{
                 'id': room.id,
                 'room_number': room.room_number,
-                'room_type': room.room_type,
+                'room_type': room.room_type.type_name,  # Changed from room.room_type to room.room_type.type_name
                 'rate': float(room.rate)
             } for room in available_rooms]
         })
@@ -336,6 +335,62 @@ def get_guests_data():
         'country': guest.country,
         'nationality': guest.nationality
     } for guest in guests])
+
+# Add these imports at the top if not already present
+from models import RoomType
+
+# Add these routes
+@app.route('/room_types', methods=['GET', 'POST'])
+def room_types():
+    if request.method == 'POST':
+        try:
+            room_type_id = request.form.get('room_type_id')
+            type_name = request.form['type_name']
+            description = request.form['description']
+            base_price = float(request.form['base_price'])
+            max_guest = int(request.form['max_guest'])
+            
+            if room_type_id:  # Update existing room type
+                room_type = hotel.session.query(RoomType).get(room_type_id)
+                if room_type:
+                    room_type.type_name = type_name
+                    room_type.description = description
+                    room_type.base_price = base_price
+                    room_type.max_guest = max_guest
+                    flash('Room type updated successfully!', 'success')
+            else:  # Create new room type
+                room_type = RoomType(
+                    type_name=type_name,
+                    description=description,
+                    base_price=base_price,
+                    max_guest=max_guest
+                )
+                hotel.session.add(room_type)
+                flash('Room type added successfully!', 'success')
+                
+            hotel.session.commit()
+            
+        except Exception as e:
+            hotel.session.rollback()
+            flash(f'Error: {str(e)}', 'error')
+            
+        return redirect(url_for('room_types'))
+    
+    room_types = hotel.session.query(RoomType).all()
+    return render_template('room_types.html', room_types=room_types)
+
+@app.route('/room_types/<int:id>', methods=['DELETE'])
+def delete_room_type(id):
+    try:
+        room_type = hotel.session.query(RoomType).get(id)
+        if room_type:
+            hotel.session.delete(room_type)
+            hotel.session.commit()
+            return jsonify({'success': True})
+        return jsonify({'success': False, 'error': 'Room type not found'}), 404
+    except Exception as e:
+        hotel.session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 if __name__ == '__main__':
     app.run(debug=True)
