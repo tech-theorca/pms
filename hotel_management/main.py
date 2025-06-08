@@ -14,14 +14,14 @@ class HotelManagementSystem:
         self.engine = create_engine(
             db_url,
             pool_pre_ping=True,
-            pool_recycle=3600,  # Recycle connections every hour
-            pool_size=10,       # Maximum number of connections in the pool
-            max_overflow=20,    # Maximum number of connections that can be created beyond pool_size
-            pool_timeout=30,    # Timeout for getting a connection from the pool
+            pool_recycle=1800,  # Reduced to 30 minutes
+            pool_size=5,        # Reduced pool size
+            max_overflow=10,    # Reduced overflow
+            pool_timeout=60,    # Increased timeout
             connect_args={
-                'connect_timeout': 30,
-                'read_timeout': 120,
-                'write_timeout': 120
+                'connect_timeout': 60,    # Increased timeout
+                'read_timeout': 180,      # Increased timeout
+                'write_timeout': 180      # Increased timeout
             }
         )
         Base.metadata.create_all(self.engine)
@@ -34,6 +34,7 @@ class HotelManagementSystem:
         self.session = self.Session()
 
     def add_room(self, room_number, room_type, rate):
+        self.refresh_session()  # Refresh session before starting new transaction
         try:
             room = Room(room_number=room_number, room_type=room_type, rate=rate)
             self.session.add(room)

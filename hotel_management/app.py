@@ -24,7 +24,7 @@ def index():
 
 @app.route('/rooms', methods=['GET', 'POST'])
 def rooms():
-    if request.method == 'POST':
+    if request.method == 'POST' and 'search' not in request.form:
         try:
             room_number = request.form['room_number']
             room_type = request.form['room_type']
@@ -40,8 +40,9 @@ def rooms():
             
         return redirect(url_for('rooms'))
     
-    if 'search' in request.form:
-        search_term = request.form['search_term']
+    # Handle search (both GET and POST)
+    search_term = request.form.get('search_term') if request.method == 'POST' else request.args.get('search_term')
+    if search_term:
         rooms = hotel.session.query(Room).filter(
             or_(
                 Room.room_number.ilike(f'%{search_term}%'),
