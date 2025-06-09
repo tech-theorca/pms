@@ -1,0 +1,107 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h2>Payment Methods Management</h2>
+
+<div class="row mt-4 mb-4">
+    <div class="col">
+        <form method="POST" class="d-flex">
+            <input type="text" class="form-control me-2" name="search_term" placeholder="Search payment methods...">
+            <button type="submit" name="search" class="btn btn-outline-primary">Search</button>
+        </form>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">Payment Methods List</h5>
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Code</th>
+                            <th>Description</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for method in payment_methods %}
+                        <tr>
+                            <td>{{ method.name }}</td>
+                            <td>{{ method.code }}</td>
+                            <td>{{ method.description }}</td>
+                            <td>
+                                <span class="badge {% if method.is_active %}bg-success{% else %}bg-danger{% endif %}">
+                                    {{ 'Active' if method.is_active else 'Inactive' }}
+                                </span>
+                            </td>
+                            <td>
+                                <button class="btn btn-sm btn-primary" onclick="editPaymentMethod({{ method.id }})">Edit</button>
+                                <form method="POST" action="{{ url_for('toggle_payment_method', method_id=method.id) }}" class="d-inline">
+                                    <button type="submit" class="btn btn-sm {% if method.is_active %}btn-danger{% else %}btn-success{% endif %}">
+                                        {{ 'Deactivate' if method.is_active else 'Activate' }}
+                                    </button>
+                                </form>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title" id="formTitle">Add New Payment Method</h5>
+                <form method="POST" id="paymentMethodForm">
+                    <input type="hidden" name="method_id" id="method_id">
+                    <div class="mb-3">
+                        <label for="name" class="form-label">Name</label>
+                        <input type="text" class="form-control" id="name" name="name" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="code" class="form-label">Code</label>
+                        <input type="text" class="form-control" id="code" name="code" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="description" class="form-label">Description</label>
+                        <textarea class="form-control" id="description" name="description" rows="3"></textarea>
+                    </div>
+                    <button type="submit" class="btn btn-primary" id="submitBtn">Add Payment Method</button>
+                    <button type="button" class="btn btn-secondary" id="cancelBtn" style="display: none;" onclick="cancelEdit()">Cancel</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function editPaymentMethod(id) {
+    fetch(`/payment_methods/${id}`)
+        .then(response => response.json())
+        .then(data => {
+            document.getElementById('method_id').value = data.id;
+            document.getElementById('name').value = data.name;
+            document.getElementById('code').value = data.code;
+            document.getElementById('description').value = data.description;
+            document.getElementById('formTitle').textContent = 'Edit Payment Method';
+            document.getElementById('submitBtn').textContent = 'Update Payment Method';
+            document.getElementById('cancelBtn').style.display = 'inline-block';
+        });
+}
+
+function cancelEdit() {
+    document.getElementById('paymentMethodForm').reset();
+    document.getElementById('method_id').value = '';
+    document.getElementById('formTitle').textContent = 'Add New Payment Method';
+    document.getElementById('submitBtn').textContent = 'Add Payment Method';
+    document.getElementById('cancelBtn').style.display = 'none';
+}
+</script>
+{% endblock %}

@@ -55,3 +55,29 @@ class Booking(Base):
     
     guest = relationship('Guest', back_populates='bookings')
     room = relationship('Room', back_populates='bookings')
+
+# Add this after the Booking class
+
+class PaymentMethod(Base):
+    __tablename__ = 'payment_methods'
+    
+    id = Column(Integer, primary_key=True)
+    name = Column(String(50), unique=True, nullable=False)
+    code = Column(String(20), unique=True, nullable=False)
+    is_active = Column(Boolean, default=True)
+    description = Column(String(200))
+    
+    payments = relationship('Payment', back_populates='payment_method')
+
+class Payment(Base):
+    __tablename__ = 'payments'
+    
+    id = Column(Integer, primary_key=True)
+    booking_id = Column(Integer, ForeignKey('bookings.id'), nullable=False)
+    amount = Column(DECIMAL(10,2), nullable=False)
+    payment_method_id = Column(Integer, ForeignKey('payment_methods.id'), nullable=False)
+    payment_date = Column(DateTime, nullable=False, default=datetime.utcnow)
+    status = Column(String(20), default='pending')  # pending, completed, failed
+    
+    booking = relationship('Booking', backref='payments')
+    payment_method = relationship('PaymentMethod', back_populates='payments')

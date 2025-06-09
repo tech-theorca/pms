@@ -1,7 +1,7 @@
 from flask import Flask, render_template, request, redirect, url_for, flash, jsonify
 from main import HotelManagementSystem
 from booking_engine import BookingEngine
-from models import Room, Guest, Booking, RoomType
+from models import Room, Guest, Booking, RoomType, PaymentMethod, Payment
 from datetime import datetime, timedelta
 from sqlalchemy import or_
 from dotenv import load_dotenv
@@ -145,10 +145,43 @@ def bookings():
             bookings = hotel.session.query(Booking).all()
     else:
         bookings = hotel.session.query(Booking).all()
-    # Get all rooms instead of just 'available' ones
+    
+    # Get all required data
     rooms = hotel.session.query(Room).all()
     guests = hotel.session.query(Guest).all()
-    return render_template('bookings.html', bookings=bookings, rooms=rooms, guests=guests)
+    
+    return render_template('bookings.html', 
+                           bookings=bookings, 
+                           rooms=rooms, 
+                           guests=guests)
+
+@app.route('/create_payment', methods=['POST'])
+def create_payment():
+    try:
+        booking_id = request.form.get('booking_id')
+        amount = request.form.get('amount')
+        payment_method_id = request.form.get('payment_method_id')
+        
+        if not all([booking_id, amount, payment_method_id]):
+            return jsonify({'success': False, 'error': 'Missing required fields'})
+        
+        # Create new payment
+        payment = Payment(
+            booking_id=booking_id,
+            amount=amount,
+            payment_method_id=payment_method_id,
+            payment_date=datetime.utcnow(),
+            status='completed'
+        )
+        
+        hotel.session.add(payment)
+        hotel.session.commit()
+        
+        return jsonify({'success': True})
+        
+    except Exception as e:
+        hotel.session.rollback()
+        return jsonify({'success': False, 'error': str(e)})
 
 @app.route('/calendar')
 def calendar():
@@ -184,14 +217,14 @@ def get_bookings():
                     'completed': '#6f42c1'
                 }
                 events.append({
-                    'title': str(room.room_number),  # Just show room number
+                    'title': str(room.room_number),
                     'start': date_str,
                     'end': date_str,
                     'color': status_colors.get(booking.status, '#6c757d'),
                     'extendedProps': {
                         'guest': f"{booking.guest.first_name} {booking.guest.last_name}",
                         'status': booking.status,
-                        'room_type': room.room_type
+                        'room_type': room.room_type.type_name  # Changed from room.room_type
                     }
                 })
             else:
@@ -203,7 +236,7 @@ def get_bookings():
                     'textColor': '#666666',
                     'extendedProps': {
                         'status': 'available',
-                        'room_type': room.room_type
+                        'room_type': room.room_type.type_name  # Changed from room.room_type
                     }
                 })
     
@@ -391,6 +424,74 @@ def delete_room_type(id):
     except Exception as e:
         hotel.session.rollback()
         return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/payment_methods', methods=['GET', 'POST'])
+def payment_methods():
+    if request.method == 'POST':
+        if 'search' in request.form:
+            search_term = request.form['search_term']
+            payment_methods = hotel.session.query(PaymentMethod).filter(
+                or_(
+                    PaymentMethod.name.ilike(f'%{search_term}%'),
+                    PaymentMethod.code.ilike(f'%{search_term}%'),
+                    PaymentMethod.description.ilike(f'%{search_term}%')
+                )
+            ).all()
+        else:
+            try:
+                method_id = request.form.get('method_id')
+                name = request.form['name']
+                code = request.form['code']
+                description = request.form['description']
+                
+                if method_id:  # Update existing
+                    method = hotel.session.query(PaymentMethod).get(method_id)
+                    if method:
+                        method.name = name
+                        method.code = code
+                        method.description = description
+                        flash('Payment method updated successfully!', 'success')
+                else:  # Create new
+                    method = PaymentMethod(
+                        name=name,
+                        code=code,
+                        description=description
+                    )
+                    hotel.session.add(method)
+                    flash('Payment method added successfully!', 'success')
+                
+                hotel.session.commit()
+            except Exception as e:
+                hotel.session.rollback()
+                flash(f'Error: {str(e)}', 'error')
+            return redirect(url_for('payment_methods'))
+    
+    payment_methods = hotel.session.query(PaymentMethod).all()
+    return render_template('payment_methods.html', payment_methods=payment_methods)
+
+@app.route('/payment_methods/<int:method_id>', methods=['GET'])
+def get_payment_method(method_id):
+    method = hotel.session.query(PaymentMethod).get(method_id)
+    if not method:
+        return jsonify({'error': 'Payment method not found'}), 404
+    
+    return jsonify({
+        'id': method.id,
+        'name': method.name,
+        'code': method.code,
+        'description': method.description
+    })
+
+@app.route('/payment_methods/<int:method_id>/toggle', methods=['POST'])
+def toggle_payment_method(method_id):
+    method = hotel.session.query(PaymentMethod).get(method_id)
+    if method:
+        method.is_active = not method.is_active
+        hotel.session.commit()
+        flash('Payment method status updated successfully!', 'success')
+    else:
+        flash('Payment method not found!', 'error')
+    return redirect(url_for('payment_methods'))
 
 if __name__ == '__main__':
     app.run(debug=True)
