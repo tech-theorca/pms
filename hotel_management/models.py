@@ -76,7 +76,7 @@ class Payment(Base):
     booking_id = Column(Integer, ForeignKey('bookings.id'), nullable=False)
     amount = Column(DECIMAL(10,2), nullable=False)
     payment_method_id = Column(Integer, ForeignKey('payment_methods.id'), nullable=False)
-    payment_date = Column(DateTime, nullable=False, default=datetime.utcnow)
+    payment_date = Column(DateTime, nullable=False, default=datetime.now)  # Changed from utcnow to now
     status = Column(String(20), default='pending')  # pending, completed, failed
     
     booking = relationship('Booking', backref='payments')

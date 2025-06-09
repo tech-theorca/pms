@@ -149,36 +149,92 @@ def bookings():
     # Get all required data
     rooms = hotel.session.query(Room).all()
     guests = hotel.session.query(Guest).all()
+    payment_methods = hotel.session.query(PaymentMethod).filter_by(is_active=True).all()
     
     return render_template('bookings.html', 
                            bookings=bookings, 
                            rooms=rooms, 
-                           guests=guests)
+                           guests=guests,
+                           payment_methods=payment_methods)
 
-@app.route('/create_payment', methods=['POST'])
+@app.route('/payments/create', methods=['GET', 'POST'])
 def create_payment():
+    if request.method == 'GET':
+        bookings = hotel.session.query(Booking).filter_by(status='pending').all()
+        payment_methods = hotel.session.query(PaymentMethod).filter_by(is_active=True).all()
+        return render_template('payment_form.html', bookings=bookings, payment_methods=payment_methods)
+    
     try:
-        booking_id = request.form.get('booking_id')
-        amount = request.form.get('amount')
-        payment_method_id = request.form.get('payment_method_id')
+        # Start fresh session
+        hotel.refresh_session()
         
-        if not all([booking_id, amount, payment_method_id]):
-            return jsonify({'success': False, 'error': 'Missing required fields'})
+        # Get form data with proper type conversion
+        booking_id = int(request.form.get('booking_id'))
+        amount = float(request.form.get('amount'))
+        payment_method_id = int(request.form.get('payment_method_id'))
         
-        # Create new payment
-        payment = Payment(
+        # Create new payment using local time
+        new_payment = Payment(
             booking_id=booking_id,
             amount=amount,
             payment_method_id=payment_method_id,
-            payment_date=datetime.utcnow(),
+            payment_date=datetime.now(),  # Changed from utcnow() to now()
             status='completed'
         )
         
-        hotel.session.add(payment)
+        # Add to session and flush
+        hotel.session.add(new_payment)
+        hotel.session.flush()
+        
+        # Update booking status
+        booking = hotel.session.query(Booking).get(booking_id)
+        if booking:
+            booking.status = 'confirmed'
+        
+        # Commit all changes
+        hotel.session.commit()
+        
+        flash('Payment created successfully', 'success')
+        return redirect(url_for('payments'))
+        
+    except ValueError as ve:
+        hotel.session.rollback()
+        flash('Invalid input data: Please check all fields are filled correctly', 'error')
+        return redirect(url_for('create_payment'))
+    except Exception as e:
+        hotel.session.rollback()
+        flash(f'Error creating payment: {str(e)}', 'error')
+        return redirect(url_for('create_payment'))
+
+@app.route('/payments')
+def payments():
+    payments = hotel.session.query(Payment).all()
+    return render_template('payments.html', payments=payments)
+
+@app.route('/payments/<int:payment_id>')
+def get_payment(payment_id):
+    payment = hotel.session.query(Payment).get(payment_id)
+    if not payment:
+        flash('Payment not found', 'error')
+        return redirect(url_for('payments'))
+    return render_template('payment_detail.html', payment=payment)
+
+@app.route('/payments/<int:payment_id>/delete', methods=['POST'])
+def delete_payment(payment_id):
+    try:
+        payment = hotel.session.query(Payment).get(payment_id)
+        if not payment:
+            return jsonify({'success': False, 'error': 'Payment not found'})
+            
+        # If payment is completed and associated with a confirmed booking,
+        # revert booking status to pending
+        if payment.status == 'completed' and payment.booking.status == 'confirmed':
+            payment.booking.status = 'pending'
+            
+        hotel.session.delete(payment)
         hotel.session.commit()
         
         return jsonify({'success': True})
-        
     except Exception as e:
         hotel.session.rollback()
         return jsonify({'success': False, 'error': str(e)})
@@ -492,6 +548,43 @@ def toggle_payment_method(method_id):
     else:
         flash('Payment method not found!', 'error')
     return redirect(url_for('payment_methods'))
+
+@app.route('/payments/new')
+def new_payment():
+    bookings = hotel.session.query(Booking).filter_by(status='pending').all()
+    payment_methods = hotel.session.query(PaymentMethod).filter_by(is_active=True).all()
+    return render_template('payment_form.html', bookings=bookings, payment_methods=payment_methods)
+
+@app.route('/payments/<int:payment_id>/edit', methods=['GET'])
+def edit_payment(payment_id):
+    payment = hotel.session.query(Payment).get(payment_id)
+    if not payment:
+        flash('Payment not found', 'error')
+        return redirect(url_for('payments'))
+    
+    payment_methods = hotel.session.query(PaymentMethod).filter_by(is_active=True).all()
+    return render_template('payment_form.html', payment=payment, payment_methods=payment_methods)
+
+@app.route('/payments/<int:payment_id>/update', methods=['POST'])
+def update_payment(payment_id):
+    try:
+        payment = hotel.session.query(Payment).get(payment_id)
+        if not payment:
+            flash('Payment not found', 'error')
+            return redirect(url_for('payments'))
+
+        payment.payment_method_id = request.form['payment_method_id']
+        payment.amount = request.form['amount']
+        payment.status = request.form['status']
+        
+        hotel.session.commit()
+        flash('Payment updated successfully', 'success')
+        return redirect(url_for('payments'))
+        
+    except Exception as e:
+        hotel.session.rollback()
+        flash(f'Error updating payment: {str(e)}', 'error')
+        return redirect(url_for('edit_payment', payment_id=payment_id))
 
 if __name__ == '__main__':
     app.run(debug=True)

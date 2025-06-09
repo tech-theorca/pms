@@ -1,0 +1,105 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h2>Payment Details</h2>
+
+<div class="row mt-4">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">Payment #{{ payment.id }}</h5>
+                <table class="table">
+                    <tr>
+                        <th>Payment ID:</th>
+                        <td>{{ payment.id }}</td>
+                    </tr>
+                    <tr>
+                        <th>Booking ID:</th>
+                        <td><a href="{{ url_for('bookings') }}" class="text-decoration-none">{{ payment.booking.id }}</a></td>
+                    </tr>
+                    <tr>
+                        <th>Guest:</th>
+                        <td>{{ payment.booking.guest.first_name }} {{ payment.booking.guest.last_name }}</td>
+                    </tr>
+                    <tr>
+                        <th>Room:</th>
+                        <td>{{ payment.booking.room.room_number }}</td>
+                    </tr>
+                    <tr>
+                        <th>Amount:</th>
+                        <td>${{ payment.amount }}</td>
+                    </tr>
+                    <tr>
+                        <th>Payment Method:</th>
+                        <td>{{ payment.payment_method.name }}</td>
+                    </tr>
+                    <tr>
+                        <th>Payment Date:</th>
+                        <td>{{ payment.payment_date.strftime('%Y-%m-%d %H:%M') }}</td>
+                    </tr>
+                    <tr>
+                        <th>Status:</th>
+                        <td>
+                            <span class="badge {% if payment.status == 'completed' %}bg-success{% elif payment.status == 'pending' %}bg-warning{% else %}bg-danger{% endif %}">
+                                {{ payment.status }}
+                            </span>
+                        </td>
+                    </tr>
+                </table>
+                <div class="mt-3">
+                    <a href="{{ url_for('payments') }}" class="btn btn-secondary">Back to Payments</a>
+                    <button class="btn btn-danger" onclick="deletePayment({{ payment.id }})">Delete Payment</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function deletePayment(paymentId) {
+    Swal.fire({
+        title: 'Are you sure?',
+        text: "This will delete the payment and may revert the booking status to pending!",
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#d33',
+        cancelButtonColor: '#3085d6',
+        confirmButtonText: 'Yes, delete it!'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            fetch(`/payments/${paymentId}/delete`, {
+                method: 'POST',
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    Swal.fire(
+                        'Deleted!',
+                        'The payment has been deleted.',
+                        'success'
+                    ).then(() => {
+                        window.location.href = "{{ url_for('payments') }}";
+                    });
+                } else {
+                    Swal.fire(
+                        'Error!',
+                        data.error || 'Failed to delete payment',
+                        'error'
+                    );
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                Swal.fire(
+                    'Error!',
+                    'An unexpected error occurred',
+                    'error'
+                );
+            });
+        }
+    });
+}
+</script>
+{% endblock %}

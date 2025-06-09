@@ -1,0 +1,102 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h2>Payment Management</h2>
+
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h5 class="card-title">Payment List</h5>
+                    <a href="{{ url_for('create_payment') }}" class="btn btn-primary">Create New Payment</a>
+                </div>
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Booking</th>
+                            <th>Guest</th>
+                            <th>Amount</th>
+                            <th>Payment Method</th>
+                            <th>Date</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for payment in payments %}
+                        <tr>
+                            <td>{{ payment.id }}</td>
+                            <td>{{ payment.booking.id }}</td>
+                            <td>{{ payment.booking.guest.first_name }} {{ payment.booking.guest.last_name }}</td>
+                            <td>${{ payment.amount }}</td>
+                            <td>{{ payment.payment_method.name }}</td>
+                            <td>{{ payment.payment_date.strftime('%Y-%m-%d %H:%M') }}</td>
+                            <td>
+                                <span class="badge {% if payment.status == 'completed' %}bg-success{% elif payment.status == 'pending' %}bg-warning{% else %}bg-danger{% endif %}">
+                                    {{ payment.status }}
+                                </span>
+                            </td>
+                            <td>
+                                <a href="{{ url_for('get_payment', payment_id=payment.id) }}" class="btn btn-sm btn-info">View</a>
+                                <a href="{{ url_for('edit_payment', payment_id=payment.id) }}" class="btn btn-sm btn-warning">Edit</a>
+                                <button class="btn btn-sm btn-danger" onclick="deletePayment({{ payment.id }})">Delete</button>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function deletePayment(paymentId) {
+    Swal.fire({
+        title: 'Are you sure?',
+        text: "This will delete the payment and may revert the booking status to pending!",
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#d33',
+        cancelButtonColor: '#3085d6',
+        confirmButtonText: 'Yes, delete it!'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            fetch(`/payments/${paymentId}/delete`, {
+                method: 'POST',
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    Swal.fire(
+                        'Deleted!',
+                        'The payment has been deleted.',
+                        'success'
+                    ).then(() => {
+                        location.reload();
+                    });
+                } else {
+                    Swal.fire(
+                        'Error!',
+                        data.error || 'Failed to delete payment',
+                        'error'
+                    );
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                Swal.fire(
+                    'Error!',
+                    'An unexpected error occurred',
+                    'error'
+                );
+            });
+        }
+    });
+}
+</script>
+{% endblock %}
